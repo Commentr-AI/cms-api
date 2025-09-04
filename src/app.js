@@ -17,9 +17,14 @@ app.use(morgan("dev"));
 import routes from "./routes/index.js";
 import userRoutes from "./routes/userRoutes.js";
 import languageRoutes from "./routes/language.js";
+import categoryRoutes from "./routes/category.js";
+import postRoutes from "./routes/post.js";
 app.use("/api", routes);
 app.use("/api/users", userRoutes);
 // Language routes
 app.use("/api/languages", languageRoutes);
-
+// Category routes
+app.use("/api/categories", categoryRoutes);
+// Post routes
+app.use("/api/posts", postRoutes);
 export default app;
