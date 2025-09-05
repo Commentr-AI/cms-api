@@ -6,7 +6,7 @@ export const createLanguage = async (req, res) => {
   try {
     const { language, slug, description, isDraft } = req.body;
 
-    if (!language || !slug || !description) {
+    if (!language || !slug) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
