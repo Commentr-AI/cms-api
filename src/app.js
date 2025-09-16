@@ -27,4 +27,7 @@ app.use("/api/languages", languageRoutes);
 app.use("/api/categories", categoryRoutes);
 // Post routes
 app.use("/api/posts", postRoutes);
+// Settings routes
+import settingsRoutes from "./routes/settings.js";
+app.use("/api/settings", settingsRoutes);
 export default app;
