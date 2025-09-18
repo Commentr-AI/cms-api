@@ -30,4 +30,6 @@ app.use("/api/posts", postRoutes);
 // Settings routes
 import settingsRoutes from "./routes/settings.js";
 app.use("/api/settings", settingsRoutes);
+import dashboardRoutes from "./routes/dashboard.js";
+app.use("/api/dashboard", dashboardRoutes);
 export default app;
