@@ -19,6 +19,14 @@ const postSchema = new mongoose.Schema(
       enum: ["free", "registered", "paid"],
       default: "free",
     },
+    bannerImage: {
+      url: {
+        type: String, // Cloudinary URL
+      },
+      public_id: {
+        type: String, // Cloudinary public_id (for deletion if needed)
+      },
+    },
     tags: [{ type: String }],
     status: {
       type: String,

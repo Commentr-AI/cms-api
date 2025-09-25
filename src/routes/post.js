@@ -7,9 +7,15 @@ import {
   deletePost,
 } from "../controllers/post.js";
 import { protect, admin } from "../middleware/authMiddleware.js";
+import fileUpload from "express-fileupload";
 
 const router = express.Router();
-
+router.use(
+  fileUpload({
+    useTempFiles: true,
+    tempFileDir: "/tmp/",
+  })
+);
 // Public: Get all published posts
 router.get("/", getPosts);
 

@@ -1,6 +1,7 @@
 import Post from "../models/post.js";
 import Category from "../models/Category.js";
 import Language from "../models/Language.js";
+import cloudinary from "../config/cloudinary.js";
 
 // Create Post (Draft or Publish)
 export const createPost = async (req, res) => {
@@ -8,6 +9,17 @@ export const createPost = async (req, res) => {
     const { title, body, category, language, accessLevel, tags, status } =
       req.body;
 
+    let bannerImage = null;
+    if (req.files && req.files.bannerImage) {
+      const file = req.files.bannerImage;
+      const uploadRes = await cloudinary.uploader.upload(file.tempFilePath, {
+        folder: "cmp/posts",
+      });
+      bannerImage = {
+        public_id: uploadRes.public_id,
+        url: uploadRes.secure_url,
+      };
+    }
     // Validate category and language exist
     const categoryExists = await Category.findById(category);
     if (!categoryExists) {
@@ -27,11 +39,13 @@ export const createPost = async (req, res) => {
       accessLevel,
       tags,
       status: status || "draft",
-      createdBy: req.user._id, // user from auth middleware
+      createdBy: req.user._id,
+      bannerImage: bannerImage, // user from auth middleware
     });
 
     res.status(201).json({ message: "Post created successfully", data: post });
   } catch (error) {
+    console.log(error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
@@ -125,8 +139,10 @@ export const getPosts = async (req, res) => {
       title: post.title,
       category: post.category?.categoryName || "Uncategorized",
       categoryId: post.category?._id,
-      language: post.language?.name || post.language?.language || "Unknown",
+      language: post.language?.language || "Unknown",
       languageId: post.language?._id,
+      tags: post.tags || [],
+      bannerImage: post.bannerImage || null,
       accessLevel: post.accessLevel || "Free",
       status: post.status || "Draft",
       date: post.createdAt,
@@ -182,7 +198,7 @@ export const getPosts = async (req, res) => {
 export const getPostById = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id)
-      .populate("category", "name")
+      .populate("category", "categoryName")
       .populate("language", "language")
       .populate("createdBy", "name email");
 
@@ -201,18 +217,46 @@ export const updatePost = async (req, res) => {
   try {
     const { title, body, category, language, accessLevel, tags, status } =
       req.body;
-
-    const updatedPost = await Post.findByIdAndUpdate(
-      req.params.id,
-      { title, body, category, language, accessLevel, tags, status },
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedPost) {
+    const existingPost = await Post.findById(req.params.id);
+    if (!existingPost) {
       return res.status(404).json({ message: "Post not found" });
     }
 
-    res.status(200).json({ message: "Post updated", data: updatedPost });
+    const bannerImage = existingPost.bannerImage;
+    if (req.files && req.files.bannerImage) {
+      const file = req.files.bannerImage;
+      if (bannerImage?.public_id) {
+        const deleteRes = await cloudinary.uploader.destroy(
+          bannerImage.public_id
+        );
+      }
+      const res = await cloudinary.uploader.upload(file.tempFilePath, {
+        folder: "cmp/posts",
+      });
+
+      bannerImage = {
+        public_id: res.public_id,
+        url: res.secure_url,
+      };
+    }
+
+    const updatedPost = await Post.findByIdAndUpdate(
+      req.params.id,
+      {
+        title,
+        body,
+        category,
+        language,
+        accessLevel,
+        tags,
+        status,
+        bannerImage,
+      },
+      { new: true, runValidators: true }
+    );
+    if (updatedPost) {
+      res.status(200).json({ message: "Post updated", data: updatedPost });
+    }
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
