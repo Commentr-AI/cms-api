@@ -19,6 +19,7 @@ import userRoutes from "./routes/userRoutes.js";
 import languageRoutes from "./routes/language.js";
 import categoryRoutes from "./routes/category.js";
 import postRoutes from "./routes/post.js";
+import privacyRoutes from "./routes/privacy.js";
 app.use("/api", routes);
 app.use("/api/users", userRoutes);
 // Language routes
@@ -32,4 +33,5 @@ import settingsRoutes from "./routes/settings.js";
 app.use("/api/settings", settingsRoutes);
 import dashboardRoutes from "./routes/dashboard.js";
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/privacy", privacyRoutes);
 export default app;
