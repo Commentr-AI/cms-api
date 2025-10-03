@@ -12,6 +12,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(morgan("dev"));
+app.use(express.urlencoded({ limit: "100mb", extended: true }));
 
 // Routes
 import routes from "./routes/index.js";
@@ -20,6 +21,7 @@ import languageRoutes from "./routes/language.js";
 import categoryRoutes from "./routes/category.js";
 import postRoutes from "./routes/post.js";
 import privacyRoutes from "./routes/privacy.js";
+import mediaRoutes from "./routes/media.js";
 app.use("/api", routes);
 app.use("/api/users", userRoutes);
 // Language routes
@@ -34,4 +36,7 @@ app.use("/api/settings", settingsRoutes);
 import dashboardRoutes from "./routes/dashboard.js";
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/privacy", privacyRoutes);
+// media routes
+
+app.use("/api/media", mediaRoutes);
 export default app;
