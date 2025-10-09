@@ -6,10 +6,21 @@ import cloudinary from "../config/cloudinary.js";
 // Create Post (Draft or Publish)
 export const createPost = async (req, res) => {
   try {
-    const { title, body, category, language, accessLevel, tags, status } =
-      req.body;
+    const {
+      title,
+      body,
+      category,
+      language,
+      accessLevel,
+      tags,
+      status,
+      bannerImageUrl,
+      bannerImagePublicId,
+    } = req.body;
 
     let bannerImage = null;
+
+    // Check if image is uploaded from computer
     if (req.files && req.files.bannerImage) {
       const file = req.files.bannerImage;
       const uploadRes = await cloudinary.uploader.upload(file.tempFilePath, {
@@ -20,6 +31,14 @@ export const createPost = async (req, res) => {
         url: uploadRes.secure_url,
       };
     }
+    // Check if image is selected from media library
+    else if (bannerImageUrl) {
+      bannerImage = {
+        public_id: bannerImagePublicId || "", // Use provided public_id or empty string
+        url: bannerImageUrl,
+      };
+    }
+
     // Validate category and language exist
     const categoryExists = await Category.findById(category);
     if (!categoryExists) {
@@ -31,6 +50,7 @@ export const createPost = async (req, res) => {
       return res.status(400).json({ message: "Invalid language" });
     }
 
+    // Create the post
     const post = await Post.create({
       title,
       body,
@@ -39,8 +59,8 @@ export const createPost = async (req, res) => {
       accessLevel,
       tags,
       status: status || "draft",
-      createdBy: req.user._id,
-      bannerImage: bannerImage, // user from auth middleware
+      createdBy: req.user._id, // user from auth middleware
+      bannerImage: bannerImage,
     });
 
     res.status(201).json({ message: "Post created successfully", data: post });
@@ -215,30 +235,75 @@ export const getPostById = async (req, res) => {
 // Update Post
 export const updatePost = async (req, res) => {
   try {
-    const { title, body, category, language, accessLevel, tags, status } =
-      req.body;
+    const {
+      title,
+      body,
+      category,
+      language,
+      accessLevel,
+      tags,
+      status,
+      bannerImageUrl,
+      bannerImagePublicId,
+      removeBannerImage, // Optional flag to remove banner image
+    } = req.body;
+
     const existingPost = await Post.findById(req.params.id);
     if (!existingPost) {
       return res.status(404).json({ message: "Post not found" });
     }
 
-    const bannerImage = existingPost.bannerImage;
-    if (req.files && req.files.bannerImage) {
-      const file = req.files.bannerImage;
+    let bannerImage = existingPost.bannerImage;
+
+    // Handle banner image removal
+    if (removeBannerImage === "true" || removeBannerImage === true) {
       if (bannerImage?.public_id) {
-        const deleteRes = await cloudinary.uploader.destroy(
-          bannerImage.public_id
-        );
+        await cloudinary.uploader.destroy(bannerImage.public_id);
       }
-      const res = await cloudinary.uploader.upload(file.tempFilePath, {
+      bannerImage = null;
+    }
+    // Handle new image upload from computer
+    else if (req.files && req.files.bannerImage) {
+      const file = req.files.bannerImage;
+
+      // Delete old image from cloudinary if it exists
+      if (bannerImage?.public_id) {
+        await cloudinary.uploader.destroy(bannerImage.public_id);
+      }
+
+      // Upload new image
+      const uploadRes = await cloudinary.uploader.upload(file.tempFilePath, {
         folder: "cmp/posts",
       });
 
       bannerImage = {
-        public_id: res.public_id,
-        url: res.secure_url,
+        public_id: uploadRes.public_id,
+        url: uploadRes.secure_url,
       };
     }
+    // Handle image selection from media library
+    else if (bannerImageUrl) {
+      // Check if the new image is different from the existing one
+      if (bannerImage?.url !== bannerImageUrl) {
+        // Only delete the old image if it's different and has a public_id
+        // Don't delete if the old image is from media library (shared resource)
+        if (
+          bannerImage?.public_id &&
+          bannerImage.url !== bannerImageUrl &&
+          bannerImage.public_id.startsWith("cmp/posts")
+        ) {
+          // Only delete if it was uploaded specifically for posts
+          await cloudinary.uploader.destroy(bannerImage.public_id);
+        }
+
+        // Set the new banner image from media library
+        bannerImage = {
+          public_id: bannerImagePublicId || "",
+          url: bannerImageUrl,
+        };
+      }
+    }
+    // If no new image data provided, keep existing bannerImage
 
     const updatedPost = await Post.findByIdAndUpdate(
       req.params.id,
@@ -254,10 +319,12 @@ export const updatePost = async (req, res) => {
       },
       { new: true, runValidators: true }
     );
+
     if (updatedPost) {
       res.status(200).json({ message: "Post updated", data: updatedPost });
     }
   } catch (error) {
+    console.log(error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
