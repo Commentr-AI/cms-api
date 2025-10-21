@@ -22,6 +22,7 @@ import categoryRoutes from "./routes/category.js";
 import postRoutes from "./routes/post.js";
 import privacyRoutes from "./routes/privacy.js";
 import mediaRoutes from "./routes/media.js";
+import StoryRoute from "./routes/story.js"
 app.use("/api", routes);
 app.use("/api/users", userRoutes);
 // Language routes
@@ -39,4 +40,6 @@ app.use("/api/privacy", privacyRoutes);
 // media routes
 
 app.use("/api/media", mediaRoutes);
+
+app.use("/api/story",StoryRoute)
 export default app;
