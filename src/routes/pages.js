@@ -20,6 +20,6 @@ router.delete("/:id", protect, admin, deletePage);
 // ✅ Public routes
 router.get("/", getAllPages);
 router.get("/:id", getPageById);
-router.get("/:slug", getPageBySlug);
+router.get("/slug/:slug", getPageBySlug);
 
 export default router;
