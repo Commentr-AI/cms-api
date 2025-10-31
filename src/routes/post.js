@@ -5,6 +5,7 @@ import {
   getPostById,
   updatePost,
   deletePost,
+  getPostsByCategory,
 } from "../controllers/post.js";
 import { protect, admin } from "../middleware/authMiddleware.js";
 import fileUpload from "express-fileupload";
@@ -18,6 +19,7 @@ router.use(
 );
 // Public: Get all published posts
 router.get("/", getPosts);
+router.get("/category-wise", getPostsByCategory);
 
 // Public: Get a single post
 router.get("/:id", getPostById);

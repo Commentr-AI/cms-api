@@ -343,3 +343,46 @@ export const deletePost = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+
+
+export const getPostsByCategory = async (req, res) => {
+  try {
+    // ✅ Fetch only published categories & sort by categoryName
+    const categories = await Category.find({ status: "published" }).sort({ categoryName: 1 });
+
+    const results = [];
+
+    for (const category of categories) {
+      // ✅ Fetch latest 3 published posts for each category
+      const posts = await Post.find({
+        category: category._id,
+        status: "published",
+      })
+        .populate("createdBy", "name email")
+        .populate("language", "language")
+        .sort({ createdAt: -1 })
+        .limit(3);
+
+      results.push({
+        category: category.categoryName, // ✅ FIXED
+        categoryId: category._id,
+        posts,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Posts fetched successfully",
+      data: results,
+    });
+
+  } catch (error) {
+    console.error("Error in getPostsByCategory:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
