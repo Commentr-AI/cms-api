@@ -16,6 +16,7 @@ export const createPost = async (req, res) => {
       status,
       bannerImageUrl,
       bannerImagePublicId,
+      isMainPost // ✅ added
     } = req.body;
 
     let bannerImage = null;
@@ -34,7 +35,7 @@ export const createPost = async (req, res) => {
     // Check if image is selected from media library
     else if (bannerImageUrl) {
       bannerImage = {
-        public_id: bannerImagePublicId || "", // Use provided public_id or empty string
+        public_id: bannerImagePublicId || "",
         url: bannerImageUrl,
       };
     }
@@ -50,6 +51,11 @@ export const createPost = async (req, res) => {
       return res.status(400).json({ message: "Invalid language" });
     }
 
+    // ✅ If marked as main post, remove main flag from others
+    if (isMainPost === true || isMainPost === "true") {
+      await Post.updateMany({}, { isMainPost: false });
+    }
+
     // Create the post
     const post = await Post.create({
       title,
@@ -59,8 +65,9 @@ export const createPost = async (req, res) => {
       accessLevel,
       tags,
       status: status || "draft",
-      createdBy: req.user._id, // user from auth middleware
+      createdBy: req.user._id,
       bannerImage: bannerImage,
+      isMainPost: isMainPost || false // ✅ added
     });
 
     res.status(201).json({ message: "Post created successfully", data: post });
@@ -69,6 +76,7 @@ export const createPost = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 
 // Get All Posts (with filters for public/draft)
 export const getPosts = async (req, res) => {
@@ -245,7 +253,8 @@ export const updatePost = async (req, res) => {
       status,
       bannerImageUrl,
       bannerImagePublicId,
-      removeBannerImage, // Optional flag to remove banner image
+      removeBannerImage,
+      isMainPost // ✅ added
     } = req.body;
 
     const existingPost = await Post.findById(req.params.id);
@@ -266,12 +275,10 @@ export const updatePost = async (req, res) => {
     else if (req.files && req.files.bannerImage) {
       const file = req.files.bannerImage;
 
-      // Delete old image from cloudinary if it exists
       if (bannerImage?.public_id) {
         await cloudinary.uploader.destroy(bannerImage.public_id);
       }
 
-      // Upload new image
       const uploadRes = await cloudinary.uploader.upload(file.tempFilePath, {
         folder: "cmp/posts",
       });
@@ -281,29 +288,26 @@ export const updatePost = async (req, res) => {
         url: uploadRes.secure_url,
       };
     }
-    // Handle image selection from media library
+    // Handle image from media library
     else if (bannerImageUrl) {
-      // Check if the new image is different from the existing one
-      if (bannerImage?.url !== bannerImageUrl) {
-        // Only delete the old image if it's different and has a public_id
-        // Don't delete if the old image is from media library (shared resource)
-        if (
-          bannerImage?.public_id &&
-          bannerImage.url !== bannerImageUrl &&
-          bannerImage.public_id.startsWith("cmp/posts")
-        ) {
-          // Only delete if it was uploaded specifically for posts
-          await cloudinary.uploader.destroy(bannerImage.public_id);
-        }
-
-        // Set the new banner image from media library
-        bannerImage = {
-          public_id: bannerImagePublicId || "",
-          url: bannerImageUrl,
-        };
+      if (
+        bannerImage?.public_id &&
+        bannerImage.url !== bannerImageUrl &&
+        bannerImage.public_id.startsWith("cmp/posts")
+      ) {
+        await cloudinary.uploader.destroy(bannerImage.public_id);
       }
+
+      bannerImage = {
+        public_id: bannerImagePublicId || "",
+        url: bannerImageUrl,
+      };
     }
-    // If no new image data provided, keep existing bannerImage
+
+    // ✅ If admin marks this as main post, unmark all others
+    if (isMainPost === true || isMainPost === "true") {
+      await Post.updateMany({ _id: { $ne: req.params.id } }, { isMainPost: false });
+    }
 
     const updatedPost = await Post.findByIdAndUpdate(
       req.params.id,
@@ -316,6 +320,7 @@ export const updatePost = async (req, res) => {
         tags,
         status,
         bannerImage,
+        isMainPost: isMainPost ?? existingPost.isMainPost // ✅ keep old if not provided
       },
       { new: true, runValidators: true }
     );
@@ -328,6 +333,7 @@ export const updatePost = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 
 // Delete Post
 export const deletePost = async (req, res) => {
@@ -386,3 +392,30 @@ export const getPostsByCategory = async (req, res) => {
   }
 };
 
+export const getTopMainPosts = async (req, res) => {
+  try {
+    // ✅ Fetch top 4 latest MAIN posts (published only)
+    const posts = await Post.find({
+      isMainPost: true,
+      status: "published",
+    })
+      .populate("createdBy", "name email")
+      .populate("language", "language")
+      .populate("category", "categoryName")
+      .sort({ createdAt: -1 }) // newest first
+      .limit(4);
+
+    return res.status(200).json({
+      success: true,
+      message: "Top main posts fetched successfully",
+      data: posts,
+    });
+
+  } catch (error) {
+    console.error("Error in getTopMainPosts:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};

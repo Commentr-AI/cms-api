@@ -20,18 +20,18 @@ const postSchema = new mongoose.Schema(
       default: "free",
     },
     bannerImage: {
-      url: {
-        type: String, // Cloudinary URL
-      },
-      public_id: {
-        type: String, // Cloudinary public_id (for deletion if needed)
-      },
+      url: { type: String },
+      public_id: { type: String },
     },
     tags: [{ type: String }],
     status: {
       type: String,
       enum: ["draft", "published"],
       default: "draft",
+    },
+    isMainPost: {
+      type: Boolean,
+      default: false, // Admin can mark true when needed
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
