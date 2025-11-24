@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const postSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
-    body: { type: String, required: true },
+    body: { type: String, required: true }, // keep or remove? Just tell me
     category: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
@@ -14,25 +14,27 @@ const postSchema = new mongoose.Schema(
       ref: "Language",
       required: true,
     },
-    accessLevel: {
-      type: String,
-      enum: ["free", "registered", "paid"],
-      default: "free",
-    },
+
+    // ❌ accessLevel removed completely
+
     bannerImage: {
       url: { type: String },
       public_id: { type: String },
     },
+
     tags: [{ type: String }],
+
     status: {
       type: String,
       enum: ["draft", "published"],
       default: "draft",
     },
+
     isMainPost: {
       type: Boolean,
-      default: false, // Admin can mark true when needed
+      default: false,
     },
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

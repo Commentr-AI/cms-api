@@ -41,8 +41,10 @@ export const registerUser = async (req, res) => {
 export const loginUser = async (req, res) => {
   try {
     const { email, password, isAdminLogin } = req.body;
+    console.log(email)
 
     const user = await User.findOne({ email });
+    console.log(user)
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials" });
     }

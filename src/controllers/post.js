@@ -3,7 +3,7 @@ import Category from "../models/Category.js";
 import Language from "../models/Language.js";
 import cloudinary from "../config/cloudinary.js";
 
-// Create Post (Draft or Publish)
+// Create Post
 export const createPost = async (req, res) => {
   try {
     const {
@@ -11,17 +11,15 @@ export const createPost = async (req, res) => {
       body,
       category,
       language,
-      accessLevel,
       tags,
       status,
       bannerImageUrl,
       bannerImagePublicId,
-      isMainPost // ✅ added
+      isMainPost
     } = req.body;
 
     let bannerImage = null;
 
-    // Check if image is uploaded from computer
     if (req.files && req.files.bannerImage) {
       const file = req.files.bannerImage;
       const uploadRes = await cloudinary.uploader.upload(file.tempFilePath, {
@@ -31,16 +29,13 @@ export const createPost = async (req, res) => {
         public_id: uploadRes.public_id,
         url: uploadRes.secure_url,
       };
-    }
-    // Check if image is selected from media library
-    else if (bannerImageUrl) {
+    } else if (bannerImageUrl) {
       bannerImage = {
         public_id: bannerImagePublicId || "",
         url: bannerImageUrl,
       };
     }
 
-    // Validate category and language exist
     const categoryExists = await Category.findById(category);
     if (!categoryExists) {
       return res.status(400).json({ message: "Invalid category" });
@@ -51,26 +46,24 @@ export const createPost = async (req, res) => {
       return res.status(400).json({ message: "Invalid language" });
     }
 
-    // ✅ If marked as main post, remove main flag from others
     if (isMainPost === true || isMainPost === "true") {
       await Post.updateMany({}, { isMainPost: false });
     }
 
-    // Create the post
     const post = await Post.create({
       title,
       body,
       category,
       language,
-      accessLevel,
       tags,
       status: status || "draft",
       createdBy: req.user._id,
-      bannerImage: bannerImage,
-      isMainPost: isMainPost || false // ✅ added
+      bannerImage,
+      isMainPost: isMainPost || false
     });
 
     res.status(201).json({ message: "Post created successfully", data: post });
+
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Server error", error: error.message });
@@ -78,14 +71,13 @@ export const createPost = async (req, res) => {
 };
 
 
-// Get All Posts (with filters for public/draft)
+// Get All Posts
 export const getPosts = async (req, res) => {
   try {
     const {
       status,
       category,
       language,
-      accessLevel,
       search,
       date,
       page = 1,
@@ -94,74 +86,45 @@ export const getPosts = async (req, res) => {
       sortOrder = "desc",
     } = req.query;
 
-    // Build filter object
     const filter = {};
 
-    // Status filter
-    if (status && status !== "") {
-      filter.status = status;
-    }
+    if (status) filter.status = status;
+    if (category) filter.category = category;
+    if (language) filter.language = language;
 
-    // Category filter (assuming category is ObjectId reference)
-    if (category && category !== "") {
-      filter.category = category;
-    }
-
-    // Language filter (assuming language is ObjectId reference)
-    if (language && language !== "") {
-      filter.language = language;
-    }
-
-    // Access Level filter
-    if (accessLevel && accessLevel !== "") {
-      filter.accessLevel = accessLevel;
-    }
-
-    // Date filter - posts created on or after the specified date
-    if (date && date !== "") {
+    if (date) {
       const startDate = new Date(date);
       const endDate = new Date(date);
-      endDate.setHours(23, 59, 59, 999); // End of the day
-
-      filter.createdAt = {
-        $gte: startDate,
-        $lte: endDate,
-      };
+      endDate.setHours(23, 59, 59, 999);
+      filter.createdAt = { $gte: startDate, $lte: endDate };
     }
 
-    // Search filter - search in title and content
     if (search && search.trim() !== "") {
       filter.$or = [
         { title: { $regex: search.trim(), $options: "i" } },
-        { content: { $regex: search.trim(), $options: "i" } },
-        { excerpt: { $regex: search.trim(), $options: "i" } },
+        { body: { $regex: search.trim(), $options: "i" } },
       ];
     }
 
-    // Calculate pagination
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    // Build sort object
     const sort = {};
     sort[sortBy] = sortOrder === "desc" ? -1 : 1;
 
-    // Execute query with population and pagination
     const posts = await Post.find(filter)
-      .populate("category", "categoryName") // assuming category has categoryName field
-      .populate("language", "language language code") // assuming language has name, language, and code fields
+      .populate("category", "categoryName")
+      .populate("language", "language")
       .populate("createdBy", "name email avatar")
       .sort(sort)
       .skip(skip)
       .limit(limitNum)
-      .lean(); // Use lean() for better performance
+      .lean();
 
-    // Get total count for pagination
     const totalPosts = await Post.countDocuments(filter);
     const totalPages = Math.ceil(totalPosts / limitNum);
-    console.log(posts, "posts");
-    // Format response data
+
     const formattedPosts = posts.map((post) => ({
       _id: post._id,
       title: post.title,
@@ -171,7 +134,6 @@ export const getPosts = async (req, res) => {
       languageId: post.language?._id,
       tags: post.tags || [],
       bannerImage: post.bannerImage || null,
-      accessLevel: post.accessLevel || "Free",
       status: post.status || "Draft",
       date: post.createdAt,
       updatedAt: post.updatedAt,
@@ -181,12 +143,7 @@ export const getPosts = async (req, res) => {
         email: post.createdBy?.email,
         avatar: post.createdBy?.avatar,
       },
-      excerpt: post.excerpt,
-      slug: post.slug,
-      featured: post.featured || false,
-      viewCount: post.viewCount || 0,
-      likesCount: post.likesCount || 0,
-      commentsCount: post.commentsCount || 0,
+      isMainPost: post.isMainPost,
     }));
 
     res.status(200).json({
@@ -200,27 +157,19 @@ export const getPosts = async (req, res) => {
         hasPrevPage: pageNum > 1,
         limit: limitNum,
       },
-      filters: {
-        status,
-        category,
-        language,
-        accessLevel,
-        search,
-        date,
-      },
+      filters: { status, category, language, search, date },
     });
+
   } catch (error) {
     console.error("Error fetching posts:", error);
     res.status(500).json({
       success: false,
       message: "Server error while fetching posts",
-      error:
-        process.env.NODE_ENV === "development"
-          ? error.message
-          : "Internal server error",
+      error: error.message,
     });
   }
 };
+
 
 // Get Single Post
 export const getPostById = async (req, res) => {
@@ -230,15 +179,15 @@ export const getPostById = async (req, res) => {
       .populate("language", "language")
       .populate("createdBy", "name email");
 
-    if (!post) {
-      return res.status(404).json({ message: "Post not found" });
-    }
+    if (!post) return res.status(404).json({ message: "Post not found" });
 
     res.status(200).json(post);
+
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 
 // Update Post
 export const updatePost = async (req, res) => {
@@ -248,13 +197,12 @@ export const updatePost = async (req, res) => {
       body,
       category,
       language,
-      accessLevel,
       tags,
       status,
       bannerImageUrl,
       bannerImagePublicId,
       removeBannerImage,
-      isMainPost // ✅ added
+      isMainPost
     } = req.body;
 
     const existingPost = await Post.findById(req.params.id);
@@ -264,15 +212,12 @@ export const updatePost = async (req, res) => {
 
     let bannerImage = existingPost.bannerImage;
 
-    // Handle banner image removal
     if (removeBannerImage === "true" || removeBannerImage === true) {
       if (bannerImage?.public_id) {
         await cloudinary.uploader.destroy(bannerImage.public_id);
       }
       bannerImage = null;
-    }
-    // Handle new image upload from computer
-    else if (req.files && req.files.bannerImage) {
+    } else if (req.files && req.files.bannerImage) {
       const file = req.files.bannerImage;
 
       if (bannerImage?.public_id) {
@@ -287,24 +232,13 @@ export const updatePost = async (req, res) => {
         public_id: uploadRes.public_id,
         url: uploadRes.secure_url,
       };
-    }
-    // Handle image from media library
-    else if (bannerImageUrl) {
-      if (
-        bannerImage?.public_id &&
-        bannerImage.url !== bannerImageUrl &&
-        bannerImage.public_id.startsWith("cmp/posts")
-      ) {
-        await cloudinary.uploader.destroy(bannerImage.public_id);
-      }
-
+    } else if (bannerImageUrl) {
       bannerImage = {
         public_id: bannerImagePublicId || "",
         url: bannerImageUrl,
       };
     }
 
-    // ✅ If admin marks this as main post, unmark all others
     if (isMainPost === true || isMainPost === "true") {
       await Post.updateMany({ _id: { $ne: req.params.id } }, { isMainPost: false });
     }
@@ -316,18 +250,16 @@ export const updatePost = async (req, res) => {
         body,
         category,
         language,
-        accessLevel,
         tags,
         status,
         bannerImage,
-        isMainPost: isMainPost ?? existingPost.isMainPost // ✅ keep old if not provided
+        isMainPost: isMainPost ?? existingPost.isMainPost,
       },
       { new: true, runValidators: true }
     );
 
-    if (updatedPost) {
-      res.status(200).json({ message: "Post updated", data: updatedPost });
-    }
+    res.status(200).json({ message: "Post updated", data: updatedPost });
+
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Server error", error: error.message });
@@ -345,22 +277,23 @@ export const deletePost = async (req, res) => {
     }
 
     res.status(200).json({ message: "Post deleted successfully" });
+
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
 
-
+// Posts by Category (latest 3 each)
 export const getPostsByCategory = async (req, res) => {
   try {
-    // ✅ Fetch only published categories & sort by categoryName
-    const categories = await Category.find({ status: "published" }).sort({ categoryName: 1 });
+    const categories = await Category.find({ status: "published" }).sort({
+      categoryName: 1,
+    });
 
     const results = [];
 
     for (const category of categories) {
-      // ✅ Fetch latest 3 published posts for each category
       const posts = await Post.find({
         category: category._id,
         status: "published",
@@ -371,7 +304,7 @@ export const getPostsByCategory = async (req, res) => {
         .limit(3);
 
       results.push({
-        category: category.categoryName, // ✅ FIXED
+        category: category.categoryName,
         categoryId: category._id,
         posts,
       });
@@ -382,7 +315,6 @@ export const getPostsByCategory = async (req, res) => {
       message: "Posts fetched successfully",
       data: results,
     });
-
   } catch (error) {
     console.error("Error in getPostsByCategory:", error);
     return res.status(500).json({
@@ -392,9 +324,10 @@ export const getPostsByCategory = async (req, res) => {
   }
 };
 
+
+// Top 4 Main Posts
 export const getTopMainPosts = async (req, res) => {
   try {
-    // ✅ Fetch top 4 latest MAIN posts (published only)
     const posts = await Post.find({
       isMainPost: true,
       status: "published",
@@ -402,7 +335,7 @@ export const getTopMainPosts = async (req, res) => {
       .populate("createdBy", "name email")
       .populate("language", "language")
       .populate("category", "categoryName")
-      .sort({ createdAt: -1 }) // newest first
+      .sort({ createdAt: -1 })
       .limit(4);
 
     return res.status(200).json({
