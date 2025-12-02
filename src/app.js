@@ -22,10 +22,15 @@ import categoryRoutes from "./routes/category.js";
 import postRoutes from "./routes/post.js";
 import privacyRoutes from "./routes/privacy.js";
 import mediaRoutes from "./routes/media.js";
-
+import TextNewsRoutes from "./routes/textNews.js"
 import PageRoute from "./routes/pages.js";
+import PromptTemplateRoute from "./routes/PromptTemplate.js"
+import MobileUsersRoutes from "./routes/mobileUsers.js"
+import MasterTemplateRoute from "./routes/masterTemplate.js"
 app.use("/api", routes);
 app.use("/api/users", userRoutes);
+// Mobile users 
+app.use("/api/mobile-users",MobileUsersRoutes)
 // Language routes
 app.use("/api/languages", languageRoutes);
 // Category routes
@@ -41,9 +46,14 @@ app.use("/api/privacy", privacyRoutes);
 // media routes
 
 app.use("/api/media", mediaRoutes);
+app.use("/api/text-news",TextNewsRoutes)
 
 
 // Pages route 
 
 app.use("/api/pages",PageRoute )
+
+// Prompte template route 
+app.use("/api/prompt-template",PromptTemplateRoute)
+app.use("/api/master-template",MasterTemplateRoute)
 export default app;
