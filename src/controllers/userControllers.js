@@ -3,6 +3,7 @@ import User from "../models/User.js";
 import generateToken from "../utils/generateToken.js";
 import sendEmail from "../utils/sendEmail.js";
 
+import MobileUser from "../models/MobileUsers.js";
 // @desc Register user
 // @route POST /api/users/register
 export const registerUser = async (req, res) => {
@@ -166,6 +167,76 @@ export const forgotPassword = async (req, res) => {
     res.json({ message: "New password sent to your email" });
   } catch (err) {
     console.error("ForgotPassword Error:", err.message);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+
+// ================================
+// @desc Get all mobile users
+// @route GET /api/mobile-users
+// ================================
+export const getAllMobileUsers = async (req, res) => {
+  console.log("cate herebsadasdasdshjshghjdhgasgh ")
+  try {
+    const users = await MobileUser.find()
+      .populate("categories", "name")       // only populate name field
+      .populate("languages", "name");        // only populate name field
+
+    const formattedUsers = users.map(user => ({
+      _id: user._id,
+      mobile: user.mobile,
+      name: user.name,
+      categoriesCount: user.categories?.length || 0,
+      languagesCount: user.languages?.length || 0,
+      notificationsEnabled: user.notificationsEnabled,
+      lastLogin: user.lastLogin,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      categories: user.categories,
+      languages: user.languages,
+    }));
+
+    res.status(200).json({
+      totalUsers: users.length,
+      users: formattedUsers,
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+
+// ================================
+// @desc Get single mobile user
+// @route GET /api/mobile-users/:id
+// ================================
+export const getMobileUserById = async (req, res) => {
+  try {
+    const user = await MobileUser.findById(req.params.id)
+      .populate("categories")
+      .populate("languages");
+
+    if (!user) {
+      return res.status(404).json({ message: "Mobile user not found" });
+    }
+
+    res.status(200).json({
+      _id: user._id,
+      mobile: user.mobile,
+      name: user.name,
+      categoriesCount: user.categories?.length || 0,
+      languagesCount: user.languages?.length || 0,
+      notificationsEnabled: user.notificationsEnabled,
+      lastLogin: user.lastLogin,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      categories: user.categories,
+      languages: user.languages,
+    });
+
+  } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
